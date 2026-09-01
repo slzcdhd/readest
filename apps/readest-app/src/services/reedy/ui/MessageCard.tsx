@@ -5,6 +5,7 @@ import type { ReedyMessage, ReedyMessagePart } from '../store/reedyStore';
 import { AssistantTextPart, UserTextPart } from './parts/TextPart';
 import { ToolCallPart } from './parts/ToolCallPart';
 import { CitationPart } from './parts/CitationPart';
+import { ReceiptPart } from './parts/ReceiptPart';
 import { AbortPart, ErrorPart } from './parts/StatusParts';
 
 /**
@@ -39,6 +40,7 @@ export const MessageCard = memo(function MessageCard({
         {message.parts.map((part, i) => (
           <PartDispatcher key={partKey(part, i)} part={part} onSourceClick={onSourceClick} />
         ))}
+        {message.receipt && <ReceiptPart receipt={message.receipt} />}
         {message.finishReason === 'error' && message.parts.every((p) => p.type !== 'error') && (
           <ErrorPart part={{ type: 'error', kind: 'unknown', message: 'Turn ended in error.' }} />
         )}

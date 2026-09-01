@@ -53,6 +53,8 @@ export interface ReedyAssistantMessage {
   /** Set once the runtime emits `done`. */
   finishReason?: ReedyTurnOutput['finishReason'];
   usage?: ReedyTurnOutput['usage'];
+  /** Observed reading coverage for delegated-reading turns. */
+  receipt?: ReedyTurnOutput['receipt'];
 }
 
 export type ReedyMessage = ReedyUserMessage | ReedyAssistantMessage;
@@ -206,7 +208,12 @@ function applyEventToAssistant(
         parts: [...msg.parts, { type: 'abort', partial: event.partial }],
       };
     case 'done':
-      return { ...msg, finishReason: event.output.finishReason, usage: event.output.usage };
+      return {
+        ...msg,
+        finishReason: event.output.finishReason,
+        usage: event.output.usage,
+        receipt: event.output.receipt,
+      };
     case 'turn_start':
     case 'step_finish':
     case 'usage':
