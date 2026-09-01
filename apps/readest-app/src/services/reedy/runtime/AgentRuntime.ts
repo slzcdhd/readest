@@ -7,6 +7,7 @@ import type { ToolContext } from '../tools/types';
 import { events, type ReedyEvent, type ReedyTurnOutput } from './events';
 import { isAbortError } from './abort';
 import { ReedyToolError } from './errors';
+import { ReadingReceiptTracker } from '../wiki/readingReceipt';
 
 const DEFAULT_MAX_STEPS = 8;
 
@@ -141,6 +142,9 @@ export class AgentRuntime {
     let lastFinishReason: ReedyTurnOutput['finishReason'] = 'stop';
     let aborted = false;
     const extractCitations = this.opts.extractCitations ?? defaultExtractCitations;
+    // Observed reading coverage for the turn — accrued from tool traffic,
+    // never from the model's own claims.
+    const receipt = new ReadingReceiptTracker();
 
     try {
       const result = streamText({
@@ -175,8 +179,11 @@ export class AgentRuntime {
               durationMs: 0, // Vercel doesn't surface tool duration here; runtime
               // can compute it from start-step + finish-step if needed.
             });
+            // Accrue observed reading coverage from the tool's result.
+            observeToolResult(receipt, toolName, part.output);
             // Synthesize citation events from the tool result.
             for (const c of extractCitations(toolName, part.output)) {
+              receipt.recordCitation();
               yield events.citation(c);
             }
             break;
@@ -250,6 +257,7 @@ export class AgentRuntime {
       assistantMessageId,
       finishReason: lastFinishReason,
       usage: lastUsage,
+      receipt: receipt.build(),
     });
   }
 
@@ -299,6 +307,36 @@ function defaultExtractCitations(toolName: string, result: unknown): CitationLik
     return [];
   }
   return [];
+}
+
+/**
+ * Accrue observed reading coverage from a tool result. This is what makes the
+ * reading receipt trustworthy — it reflects the tool calls the agent actually
+ * made, not whatever the model writes in its answer.
+ */
+function observeToolResult(
+  receipt: ReadingReceiptTracker,
+  toolName: string,
+  result: unknown,
+): void {
+  if (toolName === 'getChapterText' && result && typeof result === 'object') {
+    const r = result as { sectionIndex?: number; charCount?: number };
+    receipt.recordFullRead(
+      { label: `Section ${r.sectionIndex ?? '?'}`, sectionIndex: r.sectionIndex },
+      r.charCount ?? 0,
+    );
+    return;
+  }
+  if (toolName === 'lookupPassage' && result && typeof result === 'object') {
+    const r = result as { passages?: Array<{ sectionIndex?: number; text?: string }> };
+    if (!Array.isArray(r.passages)) return;
+    for (const p of r.passages) {
+      receipt.recordRetrieved(
+        { label: `Section ${p.sectionIndex ?? '?'}`, sectionIndex: p.sectionIndex },
+        p.text?.length ?? 0,
+      );
+    }
+  }
 }
 
 function normaliseFinishReason(reason: string): 'stop' | 'tool-calls' | 'length' {

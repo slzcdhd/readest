@@ -1,4 +1,5 @@
 import type { ReedyErrorKind, ReedyToolError } from './errors';
+import type { ReadingReceipt } from '../wiki/readingReceipt';
 
 /**
  * Permission level a tool requires before the runtime invokes it. Matches
@@ -57,6 +58,8 @@ export interface ReedyTurnOutput {
   assistantMessageId: string;
   finishReason: 'stop' | 'length' | 'tool-error' | 'abort' | 'error';
   usage?: { promptTokens: number; completionTokens: number };
+  /** Observed reading coverage for this turn (delegated reading). */
+  receipt?: ReadingReceipt;
 }
 
 // ---------------------------------------------------------------------------
