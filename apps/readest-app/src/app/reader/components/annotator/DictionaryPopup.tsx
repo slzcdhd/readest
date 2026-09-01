@@ -10,6 +10,7 @@ import {
   DictionaryResultsBody,
 } from './DictionaryResultsView';
 import { WikiLookupCard } from '@/services/reedy/wiki/WikiLookupCard';
+import { AskAiBar } from '@/services/reedy/wiki/AskAiBar';
 
 interface DictionaryPopupProps {
   word: string;
@@ -62,6 +63,7 @@ const DictionaryPopup: React.FC<DictionaryPopupProps> = ({
         <div className='min-h-0 flex-1'>
           <DictionaryResultsBody {...state} />
           <WikiLookupCard word={word} />
+          <AskAiBar />
         </div>
       </div>
     </Popup>

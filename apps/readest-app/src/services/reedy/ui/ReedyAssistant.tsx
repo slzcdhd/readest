@@ -41,6 +41,7 @@ import { SkillRegistry } from '../skills/SkillRegistry';
 import type { Skill } from '../skills/types';
 import { useReedyStore } from '../store/reedyStore';
 import { useReedyTurn } from './useReedyTurn';
+import { useAiPromptStore } from '@/store/aiPromptStore';
 import { AgentThread } from './AgentThread';
 import { Composer } from './Composer';
 import { IndexingStatus, type IndexingPhase } from './IndexingStatus';
@@ -359,6 +360,17 @@ export function ReedyAssistant({
     },
     [runtime, send, bookHash, activeSkill],
   );
+
+  // Consume a pending "ask AI" prompt queued by the word-lookup popup. The
+  // popup writes the composed prompt and switches the notebook to the AI tab;
+  // once this component is mounted (and the book is indexed) we send it.
+  useEffect(() => {
+    if (!runtime || indexingPhase !== 'indexed') return;
+    const pending = useAiPromptStore.getState().pendingPrompt;
+    if (!pending) return;
+    useAiPromptStore.getState().setPendingPrompt(null);
+    handleSend(pending);
+  }, [runtime, indexingPhase, handleSend]);
 
   if (!aiSettings.enabled) {
     return (
