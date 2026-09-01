@@ -10,11 +10,13 @@ import { BookRetriever } from '../retrieval/BookRetriever';
 import { ReedyDb } from '../db/ReedyDb';
 import { createReedyModels } from '../models/registry';
 import { ToolRegistry } from '../tools/ToolRegistry';
+import type { ToolContext } from '../tools/types';
 import {
   createAddCitationTool,
   createGetReadingContextTool,
   createGetSelectionTool,
   createLookupPassageTool,
+  createNavigateToCfiTool,
   createSearchBookMemoryTool,
   createSearchSessionMemoryTool,
   createSearchUserMemoryTool,
@@ -192,6 +194,17 @@ export function ReedyAssistant({
         // the store via a closure here.
       }),
     );
+    // Navigate is non-destructive (it just repositions the reader), so it
+    // is granted when the host wired a `goTo` callback. Without a callback
+    // (web fallback, tests) it resolves `navigated: false` rather than
+    // throwing so the model can still respond without it.
+    reg.register(
+      createNavigateToCfiTool(async (cfi) => {
+        if (!onNavigateToCfi) return { navigated: false, reason: 'no-navigate-handler' };
+        onNavigateToCfi(cfi);
+        return { navigated: true };
+      }),
+    );
     // Memory tools (Phase 3.1) — bookHash scopes book memory; userId
     // scopes user memory; sessionId mirrors the runtime's per-turn
     // sessionId which we set to bookHash today (sessions are
@@ -218,8 +231,22 @@ export function ReedyAssistant({
       createUserMemoryLayer(() => userMemorySnapshotRef.current),
     ];
 
-    return new AgentRuntime({ model: models.chat, tools: reg, layers });
-  }, [reedy, models.chat, models.embedding, bookHash, userId]);
+    // Permission policy (P0): grant non-destructive `navigate` (it only
+    // repositions the reader and is wired to the host's own goTo callback);
+    // deny `write` — no write tools are registered in this build, so the
+    // default `() => false` never fires, but this makes the intent explicit
+    // and ready for the L1 trust-grading work in P4.
+    const requestPermission: ToolContext['requestPermission'] = async ({ tool }) => {
+      return tool === 'navigateToCfi';
+    };
+
+    return new AgentRuntime({
+      model: models.chat,
+      tools: reg,
+      layers,
+      requestPermission,
+    });
+  }, [reedy, models.chat, models.embedding, bookHash, userId, onNavigateToCfi]);
 
   const messages = useReedyStore((s) => s.messages);
   const isRunning = useReedyStore((s) => s.isRunning);

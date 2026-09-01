@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyEventToMessages,
+  toModelHistory,
   type ReedyAssistantMessage,
   type ReedyMessage,
 } from '@/services/reedy/store/reedyStore';
@@ -199,5 +200,76 @@ describe('reedyStore — applyEventToMessages reducer', () => {
       summary: 's',
     });
     expect((msgs[0] as ReedyAssistantMessage).parts).toEqual([]);
+  });
+});
+
+describe('reedyStore — toModelHistory', () => {
+  it('returns an empty array for an empty log', () => {
+    expect(toModelHistory([])).toEqual([]);
+  });
+
+  it('carries user text and assistant text forward, in order', () => {
+    const msgs: ReedyMessage[] = [
+      { id: 'u1', role: 'user', text: 'what is entropy?', createdAt: 0 },
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'Entropy is ' },
+          { type: 'text', text: 'a measure.' },
+        ],
+        createdAt: 1,
+      },
+      { id: 'u2', role: 'user', text: 'simpler please', createdAt: 2 },
+    ];
+    expect(toModelHistory(msgs)).toEqual([
+      { role: 'user', content: 'what is entropy?' },
+      { role: 'assistant', content: 'Entropy is a measure.' },
+      { role: 'user', content: 'simpler please' },
+    ]);
+  });
+
+  it('drops tool calls, citations, and errors from assistant history', () => {
+    const msgs: ReedyMessage[] = [
+      { id: 'u1', role: 'user', text: 'hi', createdAt: 0 },
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool_call',
+            id: 't1',
+            name: 'lookupPassage',
+            args: {},
+            permission: 'read',
+            state: 'ok',
+          },
+          { type: 'text', text: 'answer' },
+          { type: 'citation', cfi: 'epubcfi(/6/4!/4)', sectionIndex: 0, snippet: 'x' },
+        ],
+        createdAt: 1,
+      },
+    ];
+    expect(toModelHistory(msgs)).toEqual([
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'answer' },
+    ]);
+  });
+
+  it('skips assistant messages with no text', () => {
+    const msgs: ReedyMessage[] = [
+      { id: 'u1', role: 'user', text: 'hi', createdAt: 0 },
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [{ type: 'error', message: 'boom', kind: 'model_error' }],
+        createdAt: 1,
+      },
+      { id: 'u2', role: 'user', text: 'again', createdAt: 2 },
+    ];
+    expect(toModelHistory(msgs)).toEqual([
+      { role: 'user', content: 'hi' },
+      { role: 'user', content: 'again' },
+    ]);
   });
 });

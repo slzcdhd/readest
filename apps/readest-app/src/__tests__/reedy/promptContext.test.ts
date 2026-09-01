@@ -54,14 +54,14 @@ const readingSnap: ReadingContextSnapshot = {
 };
 
 describe('tokenBudget', () => {
-  it('estimateTokens is ~chars/4', () => {
+  it('estimateTokens is ~chars/4 for ASCII', () => {
     expect(estimateTokens('')).toBe(0);
     expect(estimateTokens('hi')).toBe(1);
     expect(estimateTokens('x'.repeat(400))).toBe(100);
   });
 
-  it('estimateChars is the inverse', () => {
-    expect(estimateChars(100)).toBe(400);
+  it('estimateChars is now CJK-biased (conservative inverse)', () => {
+    expect(estimateChars(100)).toBe(150);
     expect(estimateChars(0)).toBe(0);
   });
 });

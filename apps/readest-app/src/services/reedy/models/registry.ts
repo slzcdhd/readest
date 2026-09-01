@@ -18,7 +18,7 @@ export interface ReedyModels {
 export function createReedyModels(settings: AISettings): ReedyModels {
   const provider = getAIProvider(settings);
   return {
-    chat: adaptChatModel(provider.getModel(), chatModelIdFor(settings)),
+    chat: adaptChatModel(provider.getModel(), chatModelIdFor(settings), settings),
     embedding: adaptEmbeddingModel(
       provider.getEmbeddingModel(),
       embeddingModelIdFor(settings),
@@ -99,13 +99,31 @@ const DEFAULT_CHAT_METADATA = {
   supportsTools: false,
 };
 
-function adaptChatModel(languageModel: import('ai').LanguageModel, id: string): ChatModel {
+function adaptChatModel(
+  languageModel: import('ai').LanguageModel,
+  id: string,
+  settings: AISettings,
+): ChatModel {
   const meta = CONTEXT_WINDOW_TABLE.find((row) => row.match(id)) ?? DEFAULT_CHAT_METADATA;
+
+  // Local Ollama models default to a small 4K ctx and are flagged as
+  // non-tool-calling because early Ollama builds lacked function calling.
+  // Modern Ollama (llama3.x+, qwen, mistral) supports tool calling and the
+  // user frequently overrides the ctx via Modelfile. Honor explicit
+  // overrides from settings, and otherwise assume tool support so the
+  // agent path works locally instead of silently gating itself offline.
+  let contextWindow = meta.contextWindow;
+  let supportsTools = meta.supportsTools;
+  if (settings.provider === 'ollama') {
+    contextWindow = settings.ollamaContextWindow ?? contextWindow;
+    supportsTools = settings.ollamaSupportsTools ?? true;
+  }
+
   return {
     id,
-    contextWindow: meta.contextWindow,
+    contextWindow,
     reservedOutput: meta.reservedOutput,
-    supportsTools: meta.supportsTools,
+    supportsTools,
     getLanguageModel: () => languageModel,
   };
 }

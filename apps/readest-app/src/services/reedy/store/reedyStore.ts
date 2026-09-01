@@ -237,3 +237,26 @@ function randomId(prefix: string): string {
     return `${prefix}-${crypto.randomUUID()}`;
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
+
+/**
+ * Convert the store's message log into Vercel `ModelMessage[]` for seeding
+ * a turn's history. Only user text and assistant text parts are carried
+ * forward — tool calls, citations, and errors are runtime artifacts the
+ * model shouldn't re-receive (its own tool traffic is replayed by the SDK
+ * within a single turn, not across turns).
+ */
+export function toModelHistory(messages: ReedyMessage[]): import('ai').ModelMessage[] {
+  const out: import('ai').ModelMessage[] = [];
+  for (const m of messages) {
+    if (m.role === 'user') {
+      out.push({ role: 'user', content: m.text });
+      continue;
+    }
+    const text = m.parts
+      .filter((p): p is Extract<ReedyMessagePart, { type: 'text' }> => p.type === 'text')
+      .map((p) => p.text)
+      .join('');
+    if (text.length > 0) out.push({ role: 'assistant', content: text });
+  }
+  return out;
+}

@@ -3,7 +3,7 @@
 import { useCallback, useRef } from 'react';
 import type { AgentRuntime, RunTurnInput } from '../runtime/AgentRuntime';
 import type { ReedyEvent } from '../runtime/events';
-import { useReedyStore } from '../store/reedyStore';
+import { useReedyStore, toModelHistory } from '../store/reedyStore';
 
 /**
  * Drives one assistant turn through the AgentRuntime, dispatching every
@@ -32,12 +32,16 @@ export function useReedyTurn(runtime: AgentRuntime | null) {
       cancelRef.current = controller;
 
       const store = useReedyStore.getState();
+      // Seed history from the message log *before* the current user turn is
+      // appended, so the model sees prior turns instead of starting cold.
+      const history = toModelHistory(store.messages);
       store.startUserTurn(args.userMessage);
 
       const turnInput: RunTurnInput = {
         sessionId: args.sessionId,
         bookHash: args.bookHash,
         userMessage: args.userMessage,
+        history,
         signal: controller.signal,
         toolAllowlist: args.toolAllowlist ?? null,
       };

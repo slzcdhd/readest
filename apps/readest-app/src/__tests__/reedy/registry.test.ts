@@ -42,10 +42,26 @@ describe('createReedyModels — chat metadata table', () => {
     expect(chat.supportsTools).toBe(true);
   });
 
-  it('treats local Ollama llama models as 4K ctx, no tool support', () => {
+  it('gives local Ollama models 4K ctx by default, tool support assumed on', () => {
     const { chat } = createReedyModels(settings({ provider: 'ollama', ollamaModel: 'llama3.2' }));
     expect(chat.id).toBe('llama3.2');
     expect(chat.contextWindow).toBe(4_096);
+    // Modern Ollama (llama3.x+) supports function calling; the registry now
+    // defaults tool support on so the agent path works locally instead of
+    // gating itself offline. Explicit off is still honored via settings.
+    expect(chat.supportsTools).toBe(true);
+  });
+
+  it('honors explicit ollama ctx / tool overrides from settings', () => {
+    const { chat } = createReedyModels(
+      settings({
+        provider: 'ollama',
+        ollamaModel: 'llama3.2',
+        ollamaContextWindow: 16_384,
+        ollamaSupportsTools: false,
+      }),
+    );
+    expect(chat.contextWindow).toBe(16_384);
     expect(chat.supportsTools).toBe(false);
   });
 

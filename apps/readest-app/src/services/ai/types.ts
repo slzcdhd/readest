@@ -21,6 +21,19 @@ export interface AISettings {
   ollamaBaseUrl: string;
   ollamaModel: string;
   ollamaEmbeddingModel: string;
+  /**
+   * Optional override for the local model's context window (tokens). When
+   * unset the reedy registry falls back to its per-model default (4K for
+   * llama/mistral/phi). Users who set a larger ctx via Ollama Modelfile
+   * should set this to match, or the prompt budget will under-fill.
+   */
+  ollamaContextWindow?: number;
+  /**
+   * Optional override for whether the local model supports tool calling.
+   * Defaults to true when unset — modern Ollama (llama3.x+, qwen, mistral)
+   * supports function calling; older models can force it off here.
+   */
+  ollamaSupportsTools?: boolean;
 
   aiGatewayApiKey?: string;
   aiGatewayModel?: string;
