@@ -13,6 +13,7 @@ import { ToolRegistry } from '../tools/ToolRegistry';
 import type { ToolContext } from '../tools/types';
 import {
   createAddCitationTool,
+  createGetChapterTextTool,
   createGetReadingContextTool,
   createGetSelectionTool,
   createLookupPassageTool,
@@ -24,6 +25,7 @@ import {
   createWriteUserMemoryTool,
   type ReadingContextSnapshot,
 } from '../tools/builtins';
+import { extractSectionText } from '../wiki/extractText';
 import {
   DEFAULT_POLICY,
   createBookMemoryLayer,
@@ -181,6 +183,14 @@ export function ReedyAssistant({
     reg.register(createGetReadingContextTool(() => readingRef.current));
     reg.register(createGetSelectionTool(() => readingRef.current.selection ?? null));
     reg.register(
+      createGetChapterTextTool(async (sectionIndex) => {
+        const section = bookDoc.sections[sectionIndex];
+        if (!section) return '';
+        const doc = await section.createDocument();
+        return extractSectionText(doc);
+      }),
+    );
+    reg.register(
       createLookupPassageTool({
         bookHash,
         retriever: reedy.retriever,
@@ -247,7 +257,7 @@ export function ReedyAssistant({
       layers,
       requestPermission,
     });
-  }, [reedy, models.chat, models.embedding, bookHash, userId, onNavigateToCfi]);
+  }, [reedy, models.chat, models.embedding, bookHash, userId, onNavigateToCfi, bookDoc]);
 
   const messages = useReedyStore((s) => s.messages);
   const isRunning = useReedyStore((s) => s.isRunning);

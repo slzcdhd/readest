@@ -7,6 +7,8 @@
 export { createGetReadingContextTool } from './getReadingContext';
 export { createGetSelectionTool } from './getSelection';
 export type { GetSelectionResult } from './getSelection';
+export { createGetChapterTextTool } from './getChapterText';
+export type { GetChapterTextResult } from './getChapterText';
 export { createLookupPassageTool } from './lookupPassage';
 export type { LookupPassageDeps, LookupPassageResult } from './lookupPassage';
 export { createAddCitationTool } from './addCitation';
