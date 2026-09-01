@@ -43,6 +43,7 @@ import { writeTextToClipboard } from '@/utils/clipboard';
 
 import useBooksManager from '../hooks/useBooksManager';
 import useBookShortcuts from '../hooks/useBookShortcuts';
+import { useWikiIngestScheduler } from '@/services/reedy/wiki/useWikiIngestScheduler';
 import Spinner from '@/components/Spinner';
 import SideBar from './sidebar/SideBar';
 import Notebook from './notebook/Notebook';
@@ -88,6 +89,9 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
   const pendingNotebookTransitionRef = useRef<(() => Promise<void>) | null>(null);
 
   useBookShortcuts({ sideBarBookKey, bookKeys });
+  // Background llm-wiki compilation — gated on isTauri inside the hook's own
+  // scheduler construction (the agent path requires the desktop runtime).
+  useWikiIngestScheduler(isTauriAppPlatform() ? appService : null, sideBarBookKey);
   const isAndroidApp = appService?.isAndroidApp === true;
   const androidGamepadConnected = useAndroidGamepadConnection(isAndroidApp);
   // Android's native bridge gates the Web Gamepad API so Chromium polls only

@@ -50,8 +50,19 @@ export class WikiIngestScheduler {
   private running = false;
   private abortController: AbortController | null = null;
   private spentCents = 0;
+  private extractText: ExtractText;
 
-  constructor(private readonly deps: SchedulerDeps) {}
+  constructor(private readonly deps: SchedulerDeps) {
+    this.extractText = deps.extractText;
+  }
+
+  /**
+   * Swap the text extractor at runtime. The hook calls this whenever the
+   * active book changes, so enqueued sections read from the right bookDoc.
+   */
+  setExtractText(extractText: ExtractText): void {
+    this.extractText = extractText;
+  }
 
   /** Budget remaining in USD (fractional). */
   get spentUsd(): number {
@@ -125,7 +136,7 @@ export class WikiIngestScheduler {
             bookHash: task.bookHash,
             sectionIndex: task.sectionIndex,
             contentHash: task.contentHash,
-            extractText: this.deps.extractText,
+            extractText: this.extractText,
             runExtraction,
             wiki: this.deps.wiki,
             signal,

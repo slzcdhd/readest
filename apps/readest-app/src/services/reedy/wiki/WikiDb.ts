@@ -1,4 +1,5 @@
 import type { DatabaseService } from '@/types/database';
+import type { AppService } from '@/types/system';
 import type {
   EvidenceStatus,
   PageType,
@@ -32,7 +33,7 @@ export class WikiDb {
 
   /** Open (or return the cached) wiki.db. AppService.openDatabase is the source. */
   static async open(
-    openDatabase: (key: string, file: string, dir?: string) => Promise<DatabaseService>,
+    openDatabase: Pick<AppService, 'openDatabase'>['openDatabase'],
   ): Promise<WikiDb> {
     if (WikiDb.instance) return WikiDb.instance;
     const db = await openDatabase(DEFAULT_DB_KEY, DEFAULT_DB_FILE, 'Data');
@@ -330,6 +331,52 @@ export class WikiDb {
         bookHash,
       ]),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // query (read path — never queued)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Find active pages matching a term by title or alias (case-insensitive).
+   * Merged/orphaned pages are excluded. Returns the pages plus, per page, the
+   * distinct books that contributed evidence (the "N books" signal).
+   */
+  async searchPages(term: string): Promise<Array<{ page: WikiPage; bookCount: number }>> {
+    const needle = term.trim().toLowerCase();
+    if (needle.length === 0) return [];
+
+    const rows = await this.db.select<Record<string, unknown>>(
+      `SELECT * FROM wiki_pages
+       WHERE status IN ('draft','active','disputed','disambiguation')`,
+    );
+    const out: Array<{ page: WikiPage; bookCount: number }> = [];
+    for (const r of rows) {
+      const page = rowToPage(r);
+      const aliases = aliasesOf(page.aliases);
+      const matched = [page.title, ...aliases].some((a) => a.toLowerCase() === needle);
+      if (!matched) continue;
+      const countRows = await this.db.select<{ n: number }>(
+        "SELECT COUNT(DISTINCT book_hash) AS n FROM wiki_evidence WHERE page_id = ? AND status = 'attached'",
+        [page.id],
+      );
+      out.push({ page, bookCount: countRows[0]?.n ?? 0 });
+    }
+    return out;
+  }
+
+  /**
+   * Return all global (concept/person/work/event) pages in an active-ish
+   * state, for the knowledge-base browser. Ordered by recency.
+   */
+  async listGlobalPages(): Promise<WikiPage[]> {
+    const rows = await this.db.select<Record<string, unknown>>(
+      `SELECT * FROM wiki_pages
+       WHERE type IN ('concept','person','work','event')
+         AND status IN ('draft','active','disputed','disambiguation')
+       ORDER BY updated_at DESC`,
+    );
+    return rows.map(rowToPage);
   }
 }
 
