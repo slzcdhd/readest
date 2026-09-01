@@ -314,6 +314,70 @@ const migrations: Record<SchemaType, MigrationEntry[]> = {
       `,
     },
   ],
+  wiki: [
+    {
+      name: '2026090101_wiki_init',
+      sql: `
+        CREATE TABLE IF NOT EXISTS wiki_meta (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS wiki_pages (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL CHECK (type IN
+            ('concept','person','work','event','claim','comparison','chapter_summary','index')),
+          title TEXT NOT NULL,
+          aliases TEXT NOT NULL DEFAULT '[]',
+          body_md TEXT NOT NULL DEFAULT '',
+          book_hash TEXT,
+          section_index INTEGER,
+          statement_hash TEXT,
+          status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN
+            ('draft','active','disputed','disambiguation','merged','orphaned')),
+          merged_into TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          CHECK ((type = 'chapter_summary') = (section_index IS NOT NULL AND book_hash IS NOT NULL)),
+          CHECK (type IN ('claim','chapter_summary') OR section_index IS NULL)
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_pages_title
+          ON wiki_pages(type, lower(title))
+          WHERE status IN ('draft','active','disputed','disambiguation');
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_claim_idem
+          ON wiki_pages(book_hash, statement_hash) WHERE type = 'claim';
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_chapsum_idem
+          ON wiki_pages(book_hash, section_index) WHERE type = 'chapter_summary';
+
+        CREATE TABLE IF NOT EXISTS wiki_evidence (
+          id TEXT PRIMARY KEY,
+          page_id TEXT NOT NULL,
+          book_hash TEXT NOT NULL,
+          section_index INTEGER NOT NULL,
+          start_offset INTEGER NOT NULL,
+          end_offset INTEGER NOT NULL,
+          snippet TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'attached' CHECK (status IN ('attached','orphaned')),
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_evidence_page ON wiki_evidence(page_id);
+        CREATE INDEX IF NOT EXISTS idx_evidence_book ON wiki_evidence(book_hash);
+
+        CREATE TABLE IF NOT EXISTS wiki_sources (
+          book_hash TEXT NOT NULL,
+          section_index INTEGER NOT NULL,
+          content_hash TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','ingested','failed','skipped_image_only')),
+          ingested_at INTEGER NOT NULL,
+          PRIMARY KEY (book_hash, section_index)
+        );
+      `,
+    },
+  ],
 };
 
 export function getMigrations(schema: SchemaType): MigrationEntry[] {
