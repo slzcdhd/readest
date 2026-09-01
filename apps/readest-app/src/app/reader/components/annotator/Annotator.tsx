@@ -34,6 +34,7 @@ import { useReadwiseSync } from '../../hooks/useReadwiseSync';
 import { useHardcoverSync } from '../../hooks/useHardcoverSync';
 import { useNotionSync } from '../../hooks/useNotionSync';
 import { useTextSelector } from '../../hooks/useTextSelector';
+import { useSelectionStore } from '@/store/selectionStore';
 import { Point, Position, TextSelection } from '@/utils/sel';
 import {
   getPopupPosition,
@@ -289,6 +290,13 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
     setTrianglePosition(triangPos);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection, bookKey, viewSettings.vertical]);
+
+  // Mirror the active selection into the global store so the llm-wiki word
+  // card (and the future "ask AI" popup) can read it without threading state
+  // through the Annotator's local props.
+  useEffect(() => {
+    useSelectionStore.getState().setSelection(selection);
+  }, [selection]);
 
   useEffect(() => {
     const highlightStyle = settings.globalReadSettings.highlightStyle;

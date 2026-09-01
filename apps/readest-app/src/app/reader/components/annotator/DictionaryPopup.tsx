@@ -9,6 +9,7 @@ import {
   DictionaryResultsHeader,
   DictionaryResultsBody,
 } from './DictionaryResultsView';
+import { WikiLookupCard } from '@/services/reedy/wiki/WikiLookupCard';
 
 interface DictionaryPopupProps {
   word: string;
@@ -60,6 +61,7 @@ const DictionaryPopup: React.FC<DictionaryPopupProps> = ({
         />
         <div className='min-h-0 flex-1'>
           <DictionaryResultsBody {...state} />
+          <WikiLookupCard word={word} />
         </div>
       </div>
     </Popup>
